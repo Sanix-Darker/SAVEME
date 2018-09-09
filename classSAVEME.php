@@ -47,7 +47,7 @@ class SAVEME
 	 * @param  resource
 	 * @return void
 	 */
-	public function dumpTable($handle, $table)
+	public function dumpTable_to_logicalfile($handle, $table)
 	{
 		$delTable = $this->delimite($table);
 		$res = $this->connection->query("SHOW CREATE TABLE $delTable");
@@ -132,6 +132,70 @@ class SAVEME
 
 		fwrite($handle, "\n");
 	}
+	/**
+	 * Saves dump to the file.
+	 * @param  string filename
+	 * @return void
+	 */
+	public function save($file)
+	{
+		$handle = strcasecmp(substr($file, -3), '.gz') ? fopen($file, 'wb') : gzopen($file, 'wb');
+		if (!$handle) {
+			throw new Exception("ERROR: Cannot write file '$file'.");
+		}
+		$this->write($handle);
+	}
+
+
+	/**
+	 * Writes dump to logical file.
+	 * @param  resource
+	 * @return void
+	 */
+	public function write($handle = null)
+	{
+		if ($handle === null) {
+			$handle = fopen('php://output', 'wb');
+		} elseif (!is_resource($handle) || get_resource_type($handle) !== 'stream') {
+			throw new Exception('Argument must be stream resource.');
+		}
+
+		$tables = $views = array();
+
+		$res = $this->connection->query('SHOW FULL TABLES');
+		while ($row = $res->fetch_row()) {
+			if ($row[1] === 'VIEW') {
+				$views[] = $row[0];
+			} else {
+				$tables[] = $row[0];
+			}
+		}
+		$res->close();
+
+		$tables = array_merge($tables, $views); // views must be last
+
+		$this->connection->query('LOCK TABLES `' . implode('` READ, `', $tables) . '` READ');
+
+		$db = $this->connection->query('SELECT DATABASE()')->fetch_row();
+		fwrite($handle, '-- Created at ' . date('j.n.Y G:i') . " using David Grudl MySQL Dump Utility\n"
+			. (isset($_SERVER['HTTP_HOST']) ? "-- Host: $_SERVER[HTTP_HOST]\n" : '')
+			. '-- MySQL Server: ' . $this->connection->server_info . "\n"
+			. '-- Database: ' . $db[0] . "\n"
+			. "\n"
+			. "SET NAMES utf8;\n"
+			. "SET SQL_MODE='NO_AUTO_VALUE_ON_ZERO';\n"
+			. "SET FOREIGN_KEY_CHECKS=0;\n"
+		);
+
+		foreach ($tables as $table) {
+			$this->dumpTable_to_logicalfile($handle, $table);
+		}
+
+		fwrite($handle, "-- THE END\n");
+
+		$this->connection->query('UNLOCK TABLES');
+	}
+
 
 	private function delimite($s)
 	{
