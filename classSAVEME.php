@@ -196,6 +196,12 @@ class SAVEME
 		$this->connection->query('UNLOCK TABLES');
 	}
 
+	public function saveNewDate($date){
+		$myFile2 = "date_NEVER_DELETE_THIS_FILE.txt";
+		$myFileLink2 = fopen($myFile2, 'w+') or die("Can't open file.");
+		fwrite($myFileLink2, $date);
+		fclose($myFileLink2);
+	}
 
 	private function delimite($s)
 	{

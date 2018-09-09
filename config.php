@@ -2,7 +2,7 @@
 	//All config about the database
 	
 	$host = "localhost";
-	$database = "database";
+	$database = "nakupenda";
 	$user = "root";
 	$password = "";
 
